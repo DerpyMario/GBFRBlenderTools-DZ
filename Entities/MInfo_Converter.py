@@ -17,6 +17,9 @@ from .ModelSkeleton import ModelSkeleton
 
 MINFO_HEADER = bytes.fromhex("50000000000000004800640060005C005800540050004C004800440034000000")
 SKELETON_HEADER = bytes.fromhex("100000000C0010000C000800060004000C000000")
+BUFFER_TYPE_WEIGHT_INDICES = 2
+BUFFER_TYPE_SECONDARY_WEIGHTS = 4
+BUFFER_TYPE_WEIGHTS = 8
 
 # Convert flatc json data string to proper json data string with quotes
 def preprocess_flatbuffers_json(json_data):
@@ -64,6 +67,19 @@ def bbox_to_dict(bbox):
 def dump_json(out_json_path, data):
     with open(out_json_path, 'w', encoding='utf-8') as file:
         json.dump(data, file, indent=2)
+
+def map_deform_joint_indices(indices, deform_joint_table):
+    bone_ids = []
+    out_of_range_indices = []
+
+    for index in indices:
+        if index < len(deform_joint_table):
+            bone_ids.append(deform_joint_table[index])
+        else:
+            bone_ids.append(None)
+            out_of_range_indices.append(index)
+
+    return bone_ids, out_of_range_indices
 
 def write_minfo_json(out_json_path, source_json_path):
     with open(source_json_path, 'r', encoding='utf-8') as file:
@@ -155,12 +171,13 @@ def write_mmesh_json(minfo_path, mmesh_path, out_json_path):
             file.seek(lod.MeshBuffers(0).Offset())
 
         for index in range(vert_count):
-            position = struct.unpack('<fff', file.read(12))
-            normal = struct.unpack('<eeexx', file.read(8))
-            tangent_data = struct.unpack('<eeee', file.read(8))
+            vertex_buffer = file.read(32)
+            position = struct.unpack('<fff', vertex_buffer[0:12])
+            normal = struct.unpack('<eee', vertex_buffer[12:18])
+            tangent_data = struct.unpack('<eeee', vertex_buffer[20:28])
             tangent = tangent_data[:3]
             bitangent_sign = tangent_data[3]
-            uv = struct.unpack('<ee', file.read(4))
+            uv = struct.unpack('<ee', vertex_buffer[28:32])
 
             vertices.append({
                 "index": index,
@@ -171,17 +188,19 @@ def write_mmesh_json(minfo_path, mmesh_path, out_json_path):
                 "uv": [uv[0], uv[1]]
             })
 
-        if lod.BufferTypes() & 2:
+        if lod.BufferTypes() & BUFFER_TYPE_WEIGHT_INDICES:
             file.seek(lod.MeshBuffers(1).Offset())
             for _ in range(vert_count):
                 indices = list(struct.unpack('<HHHH', file.read(8)))
+                bone_ids, out_of_range_indices = map_deform_joint_indices(indices, deform_joint_table)
                 weight_indices.append({
                     "raw": indices,
-                    "bone_ids": [deform_joint_table[index] if index < len(deform_joint_table) else None for index in indices]
+                    "bone_ids": bone_ids,
+                    "out_of_range_indices": out_of_range_indices
                 })
 
-        if lod.BufferTypes() & 8:
-            weight_buffer_index = 3 if lod.BufferTypes() & 4 else 2
+        if lod.BufferTypes() & BUFFER_TYPE_WEIGHTS:
+            weight_buffer_index = 3 if lod.BufferTypes() & BUFFER_TYPE_SECONDARY_WEIGHTS else 2
             file.seek(lod.MeshBuffers(weight_buffer_index).Offset())
             for _ in range(vert_count):
                 raw_weights = struct.unpack('<HHHH', file.read(8))
