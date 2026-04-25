@@ -37,6 +37,7 @@
   4. Name the model to the same name as the `.minfo` (i.e. Should be `pl1400.mmesh` for `pl1400.minfo`)
   5. Press the `Export` button and wait.
   6. Done! Your exported model's generated `.minfo`, `.mmesh`, and `.skeleton` files can be found in the `_Exported_Minfo` folder created where you exported to.
+     The export folder also includes `.minfo.json`, `.mmesh.json`, and `.skeleton.json` deserializations for those generated files.
   ## Exporting Checklist
   This list is subject to change as model exporting changes and is more fully understood.
   * The model must have an armature and a mesh.
