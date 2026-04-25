@@ -6,14 +6,225 @@ import sys
 import shutil
 import copy
 import time
+import struct
+
+from .ModelInfo import ModelInfo
+from .ModelSkeleton import ModelSkeleton
 # GBFR Blender .json export to .minfo converter
 # Version 3.0
 # By AlphaSatanOmega - https://github.com/AlphaSatanOmega
 # Drag and drop the original .minfo and the Blender export .json onto this .py file
 
+MINFO_HEADER = bytes.fromhex("50000000000000004800640060005C005800540050004C004800440034000000")
+SKELETON_HEADER = bytes.fromhex("100000000C0010000C000800060004000C000000")
+
 # Convert flatc json data string to proper json data string with quotes
 def preprocess_flatbuffers_json(json_data):
     return re.sub(r'(\w+)(?=\s*:)', r'"\1"', json_data) # Use regular expression to wrap field names in quotes
+
+def is_valid_minfo(filepath):
+    try:
+        with open(filepath, 'rb') as file:
+            return file.read(32) == MINFO_HEADER
+    except Exception:
+        return False
+
+def is_valid_skeleton(filepath):
+    try:
+        with open(filepath, 'rb') as file:
+            return file.read(20) == SKELETON_HEADER
+    except Exception:
+        return False
+
+def decode_name(value):
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return str(value)
+
+def vec3_to_dict(vec):
+    if vec is None:
+        return None
+    return {"x": vec.X(), "y": vec.Y(), "z": vec.Z()}
+
+def quat_to_dict(quat):
+    if quat is None:
+        return None
+    return {"w": quat.W(), "x": quat.X(), "y": quat.Y(), "z": quat.Z()}
+
+def bbox_to_dict(bbox):
+    if bbox is None:
+        return None
+    from .Vec3 import Vec3
+    min_vec = bbox.Min(Vec3())
+    max_vec = bbox.Max(Vec3())
+    return {"min": vec3_to_dict(min_vec), "max": vec3_to_dict(max_vec)}
+
+def dump_json(out_json_path, data):
+    with open(out_json_path, 'w', encoding='utf-8') as file:
+        json.dump(data, file, indent=2)
+
+def write_minfo_json(out_json_path, source_json_path):
+    with open(source_json_path, 'r', encoding='utf-8') as file:
+        dump_json(out_json_path, json.load(file))
+
+def write_skeleton_json(skeleton_path, out_json_path):
+    if not os.path.exists(skeleton_path) or not is_valid_skeleton(skeleton_path):
+        return
+
+    with open(skeleton_path, 'rb') as file:
+        skeleton = ModelSkeleton.GetRootAs(bytearray(file.read()), 0)
+
+    bones = []
+    for index in range(skeleton.BodyLength()):
+        bone = skeleton.Body(index)
+        bone_info = bone.A1()
+        bones.append({
+            "index": index,
+            "name": decode_name(bone.Name()),
+            "parent_id": bone.ParentId(),
+            "bone_info": None if bone_info is None else {
+                "bone_id": bone_info.BoneId(),
+                "unk": bone_info.Unk()
+            },
+            "position": vec3_to_dict(bone.Position()),
+            "rotation": quat_to_dict(bone.Quat()),
+            "scale": vec3_to_dict(bone.Scale())
+        })
+
+    dump_json(out_json_path, {
+        "magic": skeleton.Magic(),
+        "bone_count": skeleton.BodyLength(),
+        "bones": bones
+    })
+
+def write_mmesh_json(minfo_path, mmesh_path, out_json_path):
+    if not os.path.exists(minfo_path) or not os.path.exists(mmesh_path) or not is_valid_minfo(minfo_path):
+        return
+
+    with open(minfo_path, 'rb') as file:
+        model_info = ModelInfo.GetRootAs(bytearray(file.read()), 0)
+
+    lod = model_info.Lodinfos(0)
+    if lod is None:
+        return
+
+    vert_count = lod.VertCount()
+    face_count = lod.PolyCountX3() // 3
+    deform_joint_table = [model_info.BonesToWeightIndices(i) for i in range(model_info.BonesToWeightIndicesLength())]
+
+    mesh_buffers = []
+    for i in range(lod.MeshBuffersLength()):
+        mesh_buffer = lod.MeshBuffers(i)
+        mesh_buffers.append({
+            "index": i,
+            "offset": mesh_buffer.Offset(),
+            "size": mesh_buffer.Size()
+        })
+
+    chunks = []
+    for i in range(lod.ChunksLength()):
+        chunk = lod.Chunks(i)
+        chunks.append({
+            "index": i,
+            "offset": chunk.Offset(),
+            "count": chunk.Count(),
+            "sub_mesh_id": chunk.SubMesh(),
+            "material_id": chunk.Material(),
+            "a5": chunk.Unk1(),
+            "a6": chunk.Unk2()
+        })
+
+    sub_meshes = []
+    for i in range(model_info.SubMeshesLength()):
+        sub_mesh = model_info.SubMeshes(i)
+        sub_meshes.append({
+            "index": i,
+            "name": decode_name(sub_mesh.Name()),
+            "bbox": bbox_to_dict(sub_mesh.Bbox())
+        })
+
+    vertices = []
+    weight_indices = []
+    weights = []
+    faces = []
+
+    with open(mmesh_path, 'rb') as file:
+        if lod.MeshBuffersLength() > 0:
+            file.seek(lod.MeshBuffers(0).Offset())
+
+        for index in range(vert_count):
+            position = struct.unpack('<fff', file.read(12))
+            normal = struct.unpack('<eee', file.read(6))
+            file.seek(2, 1)
+            tangent = struct.unpack('<eee', file.read(6))
+            bitangent_sign = struct.unpack('<e', file.read(2))[0]
+            uv = struct.unpack('<ee', file.read(4))
+
+            vertices.append({
+                "index": index,
+                "position": [position[0], position[1], position[2]],
+                "normal": [normal[0], normal[1], normal[2]],
+                "tangent": [tangent[0], tangent[1], tangent[2]],
+                "bitangent_sign": bitangent_sign,
+                "uv": [uv[0], uv[1]]
+            })
+
+        if lod.BufferTypes() & 2:
+            file.seek(lod.MeshBuffers(1).Offset())
+            for _ in range(vert_count):
+                indices = [int.from_bytes(file.read(2), byteorder='little') for _ in range(4)]
+                weight_indices.append({
+                    "raw": indices,
+                    "bone_ids": [deform_joint_table[index] if index < len(deform_joint_table) else None for index in indices]
+                })
+
+        if lod.BufferTypes() & 8:
+            weight_buffer_index = 3 if lod.BufferTypes() & 4 else 2
+            file.seek(lod.MeshBuffers(weight_buffer_index).Offset())
+            for _ in range(vert_count):
+                raw_weights = struct.unpack('<HHHH', file.read(8))
+                weights.append({
+                    "raw": list(raw_weights),
+                    "normalized": [value / 65535 for value in raw_weights]
+                })
+
+        if lod.MeshBuffersLength() > 0:
+            file.seek(lod.MeshBuffers(lod.MeshBuffersLength() - 1).Offset())
+            for face_index in range(face_count):
+                face = struct.unpack('<III', file.read(12))
+                faces.append({
+                    "index": face_index,
+                    "vertices": [face[0], face[1], face[2]]
+                })
+
+    dump_json(out_json_path, {
+        "vertex_count": vert_count,
+        "face_count": face_count,
+        "buffer_types": lod.BufferTypes(),
+        "mesh_buffers": mesh_buffers,
+        "chunks": chunks,
+        "sub_meshes": sub_meshes,
+        "bones_to_weight_indices": deform_joint_table,
+        "vertices": vertices,
+        "weight_indices": weight_indices,
+        "weights": weights,
+        "faces": faces
+    })
+
+def write_export_json_files(output_dir, model_name):
+    minfo_json_path = os.path.join(output_dir, f"{model_name}.json")
+    write_minfo_json(os.path.join(output_dir, f"{model_name}.minfo.json"), minfo_json_path)
+    write_skeleton_json(
+        os.path.join(output_dir, f"{model_name}.skeleton"),
+        os.path.join(output_dir, f"{model_name}.skeleton.json")
+    )
+    write_mmesh_json(
+        os.path.join(output_dir, f"{model_name}.minfo"),
+        os.path.join(output_dir, f"{model_name}.mmesh"),
+        os.path.join(output_dir, f"{model_name}.mmesh.json")
+    )
 
 def replace_mesh_info(flatc_json, blender_json, magic = None):
     # Load json data from files
@@ -119,7 +330,9 @@ def convert_minfo(flatc_path, minfo_path, blender_json_path, magic = None):
             print(str(e))
             print(f"No copy of {model_name}{file_ext} found in {output_dir}, moving.")
         shutil.move(original_file_path, output_dir)
-        
+
+    write_export_json_files(output_dir, model_name)
+         
     # Remove _flatc_temp safely
     os.remove(os.path.join(flatc_temp_dir, f"{model_name}.json")) # Remove json first
     os.rmdir(flatc_temp_dir) # Then delete the folder since it should be empty, fails otherwise
