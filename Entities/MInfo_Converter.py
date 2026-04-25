@@ -75,6 +75,13 @@ def dump_json(out_json_path, data):
     with open(out_json_path, 'w', encoding='utf-8') as file:
         json.dump(data, file, indent=2)
 
+def run_flatc_command(command, action):
+    try:
+        subprocess.run(command, check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as err:
+        details = err.stderr.strip() or err.stdout.strip() or str(err)
+        raise RuntimeError(f"flatc failed while {action}: {details}") from err
+
 def map_deform_joint_indices(indices, deform_joint_table):
     bone_ids = []
     out_of_range_indices = []
@@ -106,7 +113,7 @@ def write_minfo_json_from_binary(flatc_path, minfo_path, out_json_path):
 
     with tempfile.TemporaryDirectory(prefix="gbfr_flatc_") as temp_dir:
         command = [flatc_path, "-o", temp_dir, "--json", minfo_fbs_path, "--", minfo_path, "--raw-binary", "--no-warnings"]
-        subprocess.run(command, check=True)
+        run_flatc_command(command, f"exporting {os.path.basename(minfo_path)} to JSON")
 
         flatc_json_path = os.path.join(temp_dir, f"{model_name}.json")
         with open(flatc_json_path, 'r', encoding='utf-8') as file:

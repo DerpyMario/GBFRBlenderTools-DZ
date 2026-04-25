@@ -528,7 +528,7 @@ def get_flatc_file_path(context):
 	if addon is None:
 		raise RuntimeError("GBFR addon preferences could not be found.")
 	flatc_file_path = addon.preferences.flatc_file_path
-	if not flatc_file_path or os.path.exists(flatc_file_path) == False:
+	if not flatc_file_path or not os.path.exists(flatc_file_path):
 		raise FileNotFoundError("Please put in the correct path to FlatBuffers/flatc.exe in Preferences > Add-ons > GBFR Blender Tools.")
 	return flatc_file_path
 
