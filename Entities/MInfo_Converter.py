@@ -15,8 +15,9 @@ from .ModelSkeleton import ModelSkeleton
 # By AlphaSatanOmega - https://github.com/AlphaSatanOmega
 # Drag and drop the original .minfo and the Blender export .json onto this .py file
 
-# Binary signatures used to sanity-check exported .minfo and .skeleton files before parsing.
+# Binary signature for GBFR .minfo files, used to reject unrelated/corrupt files before FlatBuffer parsing.
 MINFO_HEADER = bytes.fromhex("50000000000000004800640060005C005800540050004C004800440034000000")
+# Binary signature for GBFR .skeleton files, used to reject unrelated/corrupt files before FlatBuffer parsing.
 SKELETON_HEADER = bytes.fromhex("100000000C0010000C000800060004000C000000")
 
 # Mesh buffer flags/slots used by GBFR .mmesh data when weight buffers are present.
@@ -178,6 +179,7 @@ def write_mmesh_json(minfo_path, mmesh_path, out_json_path):
             file.seek(lod.MeshBuffers(0).Offset())
 
         for index in range(vert_count):
+            # Vertex buffer layout: pos[0:12], normal[12:18], padding[18:20], tangent+bitangent[20:28], uv[28:32].
             vertex_buffer = file.read(32)
             position = struct.unpack('<fff', vertex_buffer[0:12])
             normal = struct.unpack('<eee', vertex_buffer[12:18])
@@ -210,8 +212,8 @@ def write_mmesh_json(minfo_path, mmesh_path, out_json_path):
                 })
 
         if lod.BufferTypes() & BUFFER_TYPE_WEIGHTS:
-            weight_buffer_idx = WEIGHT_BUFFER_INDEX_WITH_SECONDARY if lod.BufferTypes() & BUFFER_TYPE_SECONDARY_WEIGHTS else WEIGHT_BUFFER_INDEX
-            file.seek(lod.MeshBuffers(weight_buffer_idx).Offset())
+            weight_buffer_index = WEIGHT_BUFFER_INDEX_WITH_SECONDARY if lod.BufferTypes() & BUFFER_TYPE_SECONDARY_WEIGHTS else WEIGHT_BUFFER_INDEX
+            file.seek(lod.MeshBuffers(weight_buffer_index).Offset())
             for _ in range(vert_count):
                 raw_weights = struct.unpack('<HHHH', file.read(8))
                 weights.append({
