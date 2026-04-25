@@ -61,6 +61,10 @@
   * `Select Zero Weight Vertices:` Selects all vertices that are not connected to any bones. Exporting with 0 weight vertices fails, so this prevents this highlights the unweighted vertices for you to deal with.
   * `Flip Normals:` Flips the facing of selected geometry in edit mode, so if the model appears inside out, you can flip the facing so it's right-side out.
   * `Remove Doubles:` Joins vertices that are very close together but not joined.
+  * `JSON Tools:` Converts `.minfo`, `.mmesh`, and `.skeleton` files into parsed `.json` files directly from the tool shelf.
+    * `Export .minfo JSON:` Writes a `<model>.minfo.json` file next to the selected `.minfo`. Requires the `flatc` path to be set in addon preferences.
+    * `Export .mmesh JSON:` Writes a `<model>.mmesh.json` file next to the selected `.mmesh`. The matching `.minfo` must be in the same folder.
+    * `Export .skeleton JSON:` Writes a `<model>.skeleton.json` file next to the selected `.skeleton`.
   
   * `Materials Section:` Use this section to set the material indices of the materials that will correlate with the materials listed in the `.mmat`s.
 
