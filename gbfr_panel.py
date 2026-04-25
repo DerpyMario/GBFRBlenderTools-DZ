@@ -185,7 +185,7 @@ class GBFRToolPanel_JSONTools(bpy.types.Panel):
 		row = col.row(align=False) ; row.scale_y = 0.75
 		row.label(text = "Export files to parsed JSON.", icon="TEXT")
 		row = col.row(align=False) ; row.scale_y = 0.75
-		row.label(text = ".mmesh requires a matching .minfo beside it.")
+		row.label(text = ".mmesh requires a matching .minfo next to it.")
 		row = col.row(align=True) ; row.scale_y = 1.3
 		row.operator("gbfr.export_minfo_json", icon='FILE')
 		row = col.row(align=True) ; row.scale_y = 1.3
@@ -549,7 +549,8 @@ class ButtonExportMInfoJson(bpy.types.Operator, ImportHelper):
 			output_path = MInfo_Converter.export_minfo_file_to_json(get_flatc_file_path(context), self.filepath)
 			self.report({'INFO'}, f"Saved {os.path.basename(output_path)}")
 		except Exception as err:
-			raise Exception(format_exception(str(err))) from err
+			self.report({'ERROR'}, format_exception(str(err)))
+			return {'CANCELLED'}
 		return {'FINISHED'}
 
 class ButtonExportMMeshJson(bpy.types.Operator, ImportHelper):
@@ -569,7 +570,8 @@ class ButtonExportMMeshJson(bpy.types.Operator, ImportHelper):
 			output_path = MInfo_Converter.export_mmesh_file_to_json(self.filepath)
 			self.report({'INFO'}, f"Saved {os.path.basename(output_path)}")
 		except Exception as err:
-			raise Exception(format_exception(str(err))) from err
+			self.report({'ERROR'}, format_exception(str(err)))
+			return {'CANCELLED'}
 		return {'FINISHED'}
 
 class ButtonExportSkeletonJson(bpy.types.Operator, ImportHelper):
@@ -589,7 +591,8 @@ class ButtonExportSkeletonJson(bpy.types.Operator, ImportHelper):
 			output_path = MInfo_Converter.export_skeleton_file_to_json(self.filepath)
 			self.report({'INFO'}, f"Saved {os.path.basename(output_path)}")
 		except Exception as err:
-			raise Exception(format_exception(str(err))) from err
+			self.report({'ERROR'}, format_exception(str(err)))
+			return {'CANCELLED'}
 		return {'FINISHED'}
 	
 

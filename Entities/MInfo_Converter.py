@@ -104,11 +104,11 @@ def write_minfo_json_from_binary(flatc_path, minfo_path, out_json_path):
     minfo_fbs_path = os.path.join(script_dir, "MInfo_ModelInfo.fbs")
     model_name = os.path.splitext(os.path.basename(minfo_path))[0]
 
-    with tempfile.TemporaryDirectory(prefix="gbfr_flatc_") as flatc_temp_dir:
-        command = [flatc_path, "-o", flatc_temp_dir, "--json", minfo_fbs_path, "--", minfo_path, "--raw-binary", "--no-warnings"]
+    with tempfile.TemporaryDirectory(prefix="gbfr_flatc_") as temp_dir:
+        command = [flatc_path, "-o", temp_dir, "--json", minfo_fbs_path, "--", minfo_path, "--raw-binary", "--no-warnings"]
         subprocess.run(command, check=True)
 
-        flatc_json_path = os.path.join(flatc_temp_dir, f"{model_name}.json")
+        flatc_json_path = os.path.join(temp_dir, f"{model_name}.json")
         with open(flatc_json_path, 'r', encoding='utf-8') as file:
             dump_json(out_json_path, json.loads(preprocess_flatbuffers_json(file.read())))
 
