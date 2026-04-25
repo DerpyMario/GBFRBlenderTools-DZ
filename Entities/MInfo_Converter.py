@@ -197,7 +197,7 @@ def write_mmesh_json(minfo_path, mmesh_path, out_json_path):
                 "uv": [uv[0], uv[1]]
             })
 
-        if lod.BufferTypes() & BUFFER_TYPE_WEIGHT_INDICES:
+        if lod.BufferTypes() & BUFFER_TYPE_WEIGHT_INDICES and lod.MeshBuffersLength() > 1:
             file.seek(lod.MeshBuffers(1).Offset())
             for _ in range(vert_count):
                 indices = list(struct.unpack('<HHHH', file.read(8)))
@@ -213,13 +213,14 @@ def write_mmesh_json(minfo_path, mmesh_path, out_json_path):
 
         if lod.BufferTypes() & BUFFER_TYPE_WEIGHTS:
             weight_buffer_index = WEIGHT_BUFFER_INDEX_WITH_SECONDARY if lod.BufferTypes() & BUFFER_TYPE_SECONDARY_WEIGHTS else WEIGHT_BUFFER_INDEX
-            file.seek(lod.MeshBuffers(weight_buffer_index).Offset())
-            for _ in range(vert_count):
-                raw_weights = struct.unpack('<HHHH', file.read(8))
-                weights.append({
-                    "raw": list(raw_weights),
-                    "normalized": [value / 65535 for value in raw_weights]
-                })
+            if lod.MeshBuffersLength() > weight_buffer_index:
+                file.seek(lod.MeshBuffers(weight_buffer_index).Offset())
+                for _ in range(vert_count):
+                    raw_weights = struct.unpack('<HHHH', file.read(8))
+                    weights.append({
+                        "raw": list(raw_weights),
+                        "normalized": [value / 65535 for value in raw_weights]
+                    })
 
         if lod.MeshBuffersLength() > 0:
             file.seek(lod.MeshBuffers(lod.MeshBuffersLength() - 1).Offset())
@@ -232,9 +233,9 @@ def write_mmesh_json(minfo_path, mmesh_path, out_json_path):
 
     if invalid_weight_indices:
         print(
-            f"Warning: {os.path.basename(mmesh_path)} has out-of-range deform joint indices "
-            f"on {invalid_weight_vertex_count} vertices; affected indices: {sorted(invalid_weight_indices)}. "
-            "The generated JSON keeps these entries as null bone_ids."
+            f"Warning: {os.path.basename(mmesh_path)} contains {invalid_weight_vertex_count} vertices with "
+            f"weight indices outside the valid range [0, {max(len(deform_joint_table) - 1, 0)}]; "
+            f"affected indices: {sorted(invalid_weight_indices)}. These are mapped to null bone_ids in the JSON output."
         )
 
     dump_json(out_json_path, {
