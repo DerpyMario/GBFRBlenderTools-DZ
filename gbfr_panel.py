@@ -185,7 +185,7 @@ class GBFRToolPanel_JSONTools(bpy.types.Panel):
 		row = col.row(align=False) ; row.scale_y = 0.75
 		row.label(text = "Export files to parsed JSON.", icon="TEXT")
 		row = col.row(align=False) ; row.scale_y = 0.75
-		row.label(text = ".mmesh requires a matching .minfo next to it.")
+		row.label(text = ".mmesh requires a matching .minfo in the same folder.")
 		row = col.row(align=True) ; row.scale_y = 1.3
 		row.operator("gbfr.export_minfo_json", icon='FILE')
 		row = col.row(align=True) ; row.scale_y = 1.3

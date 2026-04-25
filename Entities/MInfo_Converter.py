@@ -82,6 +82,9 @@ def run_flatc_command(command, action):
         details = err.stderr.strip() or err.stdout.strip() or str(err)
         raise RuntimeError(f"flatc failed while {action}: {details}") from err
 
+def get_default_json_output_path(input_path):
+    return f"{input_path}.json"
+
 def map_deform_joint_indices(indices, deform_joint_table):
     bone_ids = []
     out_of_range_indices = []
@@ -293,24 +296,24 @@ def write_export_json_files(output_dir, model_name):
         os.path.join(output_dir, f"{model_name}.mmesh.json")
     )
 
-def export_minfo_file_to_json(flatc_path, minfo_path, out_json_path = None):
+def export_minfo_file_to_json(flatc_path, minfo_path, out_json_path=None):
     if out_json_path is None:
-        out_json_path = f"{minfo_path}.json"
+        out_json_path = get_default_json_output_path(minfo_path)
     write_minfo_json_from_binary(flatc_path, minfo_path, out_json_path)
     return out_json_path
 
-def export_skeleton_file_to_json(skeleton_path, out_json_path = None):
+def export_skeleton_file_to_json(skeleton_path, out_json_path=None):
     if not os.path.exists(skeleton_path):
         raise FileNotFoundError(f".skeleton file not found: {skeleton_path}")
     if not is_valid_skeleton(skeleton_path):
         raise ValueError(f"Invalid .skeleton file: {skeleton_path}")
 
     if out_json_path is None:
-        out_json_path = f"{skeleton_path}.json"
+        out_json_path = get_default_json_output_path(skeleton_path)
     write_skeleton_json(skeleton_path, out_json_path)
     return out_json_path
 
-def export_mmesh_file_to_json(mmesh_path, out_json_path = None):
+def export_mmesh_file_to_json(mmesh_path, out_json_path=None):
     if not os.path.exists(mmesh_path):
         raise FileNotFoundError(f".mmesh file not found: {mmesh_path}")
 
@@ -321,7 +324,7 @@ def export_mmesh_file_to_json(mmesh_path, out_json_path = None):
         raise ValueError(f"Invalid .minfo file: {minfo_path}")
 
     if out_json_path is None:
-        out_json_path = f"{mmesh_path}.json"
+        out_json_path = get_default_json_output_path(mmesh_path)
     write_mmesh_json(minfo_path, mmesh_path, out_json_path)
     return out_json_path
 
