@@ -170,6 +170,7 @@ def write_mmesh_json(minfo_path, mmesh_path, out_json_path):
     weight_indices = []
     weights = []
     faces = []
+    invalid_weight_indices = set()
 
     with open(mmesh_path, 'rb') as file:
         if lod.MeshBuffersLength() > 0:
@@ -198,6 +199,7 @@ def write_mmesh_json(minfo_path, mmesh_path, out_json_path):
             for _ in range(vert_count):
                 indices = list(struct.unpack('<HHHH', file.read(8)))
                 bone_ids, out_of_range_indices = map_deform_joint_indices(indices, deform_joint_table)
+                invalid_weight_indices.update(out_of_range_indices)
                 weight_indices.append({
                     "raw": indices,
                     "bone_ids": bone_ids,
@@ -205,8 +207,8 @@ def write_mmesh_json(minfo_path, mmesh_path, out_json_path):
                 })
 
         if lod.BufferTypes() & BUFFER_TYPE_WEIGHTS:
-            selected_weight_buffer_index = WEIGHT_BUFFER_INDEX_WITH_SECONDARY if lod.BufferTypes() & BUFFER_TYPE_SECONDARY_WEIGHTS else WEIGHT_BUFFER_INDEX
-            file.seek(lod.MeshBuffers(selected_weight_buffer_index).Offset())
+            weight_buffer_idx = WEIGHT_BUFFER_INDEX_WITH_SECONDARY if lod.BufferTypes() & BUFFER_TYPE_SECONDARY_WEIGHTS else WEIGHT_BUFFER_INDEX
+            file.seek(lod.MeshBuffers(weight_buffer_idx).Offset())
             for _ in range(vert_count):
                 raw_weights = struct.unpack('<HHHH', file.read(8))
                 weights.append({
@@ -222,6 +224,9 @@ def write_mmesh_json(minfo_path, mmesh_path, out_json_path):
                     "index": face_index,
                     "vertices": [face[0], face[1], face[2]]
                 })
+
+    if invalid_weight_indices:
+        print(f"Warning: {os.path.basename(mmesh_path)} has out-of-range deform joint indices: {sorted(invalid_weight_indices)}")
 
     dump_json(out_json_path, {
         "vertex_count": vert_count,
