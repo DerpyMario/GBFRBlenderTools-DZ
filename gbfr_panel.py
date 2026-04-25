@@ -549,7 +549,7 @@ class ButtonExportMInfoJson(bpy.types.Operator, ImportHelper):
 			output_path = MInfo_Converter.export_minfo_file_to_json(get_flatc_file_path(context), self.filepath)
 			self.report({'INFO'}, f"Saved {os.path.basename(output_path)}")
 		except Exception as err:
-			raise Exception(format_exception(str(err)))
+			raise Exception(format_exception(str(err))) from err
 		return {'FINISHED'}
 
 class ButtonExportMMeshJson(bpy.types.Operator, ImportHelper):
@@ -569,7 +569,7 @@ class ButtonExportMMeshJson(bpy.types.Operator, ImportHelper):
 			output_path = MInfo_Converter.export_mmesh_file_to_json(self.filepath)
 			self.report({'INFO'}, f"Saved {os.path.basename(output_path)}")
 		except Exception as err:
-			raise Exception(format_exception(str(err)))
+			raise Exception(format_exception(str(err))) from err
 		return {'FINISHED'}
 
 class ButtonExportSkeletonJson(bpy.types.Operator, ImportHelper):
@@ -589,7 +589,7 @@ class ButtonExportSkeletonJson(bpy.types.Operator, ImportHelper):
 			output_path = MInfo_Converter.export_skeleton_file_to_json(self.filepath)
 			self.report({'INFO'}, f"Saved {os.path.basename(output_path)}")
 		except Exception as err:
-			raise Exception(format_exception(str(err)))
+			raise Exception(format_exception(str(err))) from err
 		return {'FINISHED'}
 	
 
