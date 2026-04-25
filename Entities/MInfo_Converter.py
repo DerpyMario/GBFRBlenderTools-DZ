@@ -20,6 +20,8 @@ SKELETON_HEADER = bytes.fromhex("100000000C0010000C000800060004000C000000")
 BUFFER_TYPE_WEIGHT_INDICES = 2
 BUFFER_TYPE_SECONDARY_WEIGHTS = 4
 BUFFER_TYPE_WEIGHTS = 8
+WEIGHT_BUFFER_INDEX = 2
+WEIGHT_BUFFER_INDEX_WITH_SECONDARY = 3
 
 # Convert flatc json data string to proper json data string with quotes
 def preprocess_flatbuffers_json(json_data):
@@ -200,7 +202,7 @@ def write_mmesh_json(minfo_path, mmesh_path, out_json_path):
                 })
 
         if lod.BufferTypes() & BUFFER_TYPE_WEIGHTS:
-            weight_buffer_index = 3 if lod.BufferTypes() & BUFFER_TYPE_SECONDARY_WEIGHTS else 2
+            weight_buffer_index = WEIGHT_BUFFER_INDEX_WITH_SECONDARY if lod.BufferTypes() & BUFFER_TYPE_SECONDARY_WEIGHTS else WEIGHT_BUFFER_INDEX
             file.seek(lod.MeshBuffers(weight_buffer_index).Offset())
             for _ in range(vert_count):
                 raw_weights = struct.unpack('<HHHH', file.read(8))
@@ -351,7 +353,7 @@ def convert_minfo(flatc_path, minfo_path, blender_json_path, magic = None):
         shutil.move(original_file_path, output_dir)
 
     write_export_json_files(output_dir, model_name)
-         
+
     # Remove _flatc_temp safely
     os.remove(os.path.join(flatc_temp_dir, f"{model_name}.json")) # Remove json first
     os.rmdir(flatc_temp_dir) # Then delete the folder since it should be empty, fails otherwise
