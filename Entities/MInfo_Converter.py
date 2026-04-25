@@ -156,10 +156,10 @@ def write_mmesh_json(minfo_path, mmesh_path, out_json_path):
 
         for index in range(vert_count):
             position = struct.unpack('<fff', file.read(12))
-            normal = struct.unpack('<eee', file.read(6))
-            file.seek(2, 1)
-            tangent = struct.unpack('<eee', file.read(6))
-            bitangent_sign = struct.unpack('<e', file.read(2))[0]
+            normal = struct.unpack('<eeexx', file.read(8))
+            tangent_data = struct.unpack('<eeee', file.read(8))
+            tangent = tangent_data[:3]
+            bitangent_sign = tangent_data[3]
             uv = struct.unpack('<ee', file.read(4))
 
             vertices.append({
@@ -174,7 +174,7 @@ def write_mmesh_json(minfo_path, mmesh_path, out_json_path):
         if lod.BufferTypes() & 2:
             file.seek(lod.MeshBuffers(1).Offset())
             for _ in range(vert_count):
-                indices = [int.from_bytes(file.read(2), byteorder='little') for _ in range(4)]
+                indices = list(struct.unpack('<HHHH', file.read(8)))
                 weight_indices.append({
                     "raw": indices,
                     "bone_ids": [deform_joint_table[index] if index < len(deform_joint_table) else None for index in indices]
