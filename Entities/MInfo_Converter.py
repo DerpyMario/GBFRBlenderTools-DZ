@@ -7,6 +7,7 @@ import shutil
 import copy
 import time
 import struct
+import tempfile
 
 from .ModelInfo import ModelInfo
 from .ModelSkeleton import ModelSkeleton
@@ -90,6 +91,26 @@ def map_deform_joint_indices(indices, deform_joint_table):
 def write_minfo_json(out_json_path, source_json_path):
     with open(source_json_path, 'r', encoding='utf-8') as file:
         dump_json(out_json_path, json.load(file))
+
+def write_minfo_json_from_binary(flatc_path, minfo_path, out_json_path):
+    if not os.path.exists(flatc_path):
+        raise FileNotFoundError(f"flatc executable not found: {flatc_path}")
+    if not os.path.exists(minfo_path):
+        raise FileNotFoundError(f".minfo file not found: {minfo_path}")
+    if not is_valid_minfo(minfo_path):
+        raise ValueError(f"Invalid .minfo file: {minfo_path}")
+
+    script_dir = os.path.dirname(__file__)
+    minfo_fbs_path = os.path.join(script_dir, "MInfo_ModelInfo.fbs")
+    model_name = os.path.splitext(os.path.basename(minfo_path))[0]
+
+    with tempfile.TemporaryDirectory(prefix="gbfr_flatc_") as flatc_temp_dir:
+        command = [flatc_path, "-o", flatc_temp_dir, "--json", minfo_fbs_path, "--", minfo_path, "--raw-binary", "--no-warnings"]
+        subprocess.run(command, check=True)
+
+        flatc_json_path = os.path.join(flatc_temp_dir, f"{model_name}.json")
+        with open(flatc_json_path, 'r', encoding='utf-8') as file:
+            dump_json(out_json_path, json.loads(preprocess_flatbuffers_json(file.read())))
 
 def write_skeleton_json(skeleton_path, out_json_path):
     if not os.path.exists(skeleton_path) or not is_valid_skeleton(skeleton_path):
@@ -264,6 +285,38 @@ def write_export_json_files(output_dir, model_name):
         os.path.join(output_dir, f"{model_name}.mmesh"),
         os.path.join(output_dir, f"{model_name}.mmesh.json")
     )
+
+def export_minfo_file_to_json(flatc_path, minfo_path, out_json_path = None):
+    if out_json_path is None:
+        out_json_path = f"{minfo_path}.json"
+    write_minfo_json_from_binary(flatc_path, minfo_path, out_json_path)
+    return out_json_path
+
+def export_skeleton_file_to_json(skeleton_path, out_json_path = None):
+    if not os.path.exists(skeleton_path):
+        raise FileNotFoundError(f".skeleton file not found: {skeleton_path}")
+    if not is_valid_skeleton(skeleton_path):
+        raise ValueError(f"Invalid .skeleton file: {skeleton_path}")
+
+    if out_json_path is None:
+        out_json_path = f"{skeleton_path}.json"
+    write_skeleton_json(skeleton_path, out_json_path)
+    return out_json_path
+
+def export_mmesh_file_to_json(mmesh_path, out_json_path = None):
+    if not os.path.exists(mmesh_path):
+        raise FileNotFoundError(f".mmesh file not found: {mmesh_path}")
+
+    minfo_path = os.path.splitext(mmesh_path)[0] + ".minfo"
+    if not os.path.exists(minfo_path):
+        raise FileNotFoundError(f"Matching .minfo file not found for {mmesh_path}")
+    if not is_valid_minfo(minfo_path):
+        raise ValueError(f"Invalid .minfo file: {minfo_path}")
+
+    if out_json_path is None:
+        out_json_path = f"{mmesh_path}.json"
+    write_mmesh_json(minfo_path, mmesh_path, out_json_path)
+    return out_json_path
 
 def replace_mesh_info(flatc_json, blender_json, magic = None):
     # Load json data from files

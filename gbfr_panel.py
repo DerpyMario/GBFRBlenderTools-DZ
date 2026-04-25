@@ -3,6 +3,9 @@ import bpy.utils.previews # Funny blender at it again acting weird for some by n
 import os
 import webbrowser
 import urllib.request
+from bpy_extras.io_utils import ImportHelper
+from bpy.props import StringProperty
+from .Entities import MInfo_Converter
 from .utils import *
 
 DIR_PATH = os.path.dirname(os.path.abspath(__file__))
@@ -166,6 +169,29 @@ class GBFRToolPanel_Advanced(bpy.types.Panel):
 				row.operator("armature.add_magic_number")
 			row = col.row(align=False) ; row.scale_y = 0.75
 			row.label(text = f"Game's current .minfo magic: {curr_game_magic}", icon="INFO")
+
+class GBFRToolPanel_JSONTools(bpy.types.Panel):
+	bl_label = "JSON Tools"
+	bl_idname = "VIEW3D_PT_GBFR_Tools_Panel_JSON"
+	bl_space_type = 'VIEW_3D'
+	bl_region_type = 'UI'
+	bl_category = "GBFR"
+	bl_options = {"DEFAULT_CLOSED"}
+
+	def draw(self, context):
+		layout = self.layout
+		box = layout.box()
+		col = box.column(align=True)
+		row = col.row(align=False) ; row.scale_y = 0.75
+		row.label(text = "Export files to parsed JSON.", icon="TEXT")
+		row = col.row(align=False) ; row.scale_y = 0.75
+		row.label(text = ".mmesh requires a matching .minfo beside it.")
+		row = col.row(align=True) ; row.scale_y = 1.3
+		row.operator("gbfr.export_minfo_json", icon='FILE')
+		row = col.row(align=True) ; row.scale_y = 1.3
+		row.operator("gbfr.export_mmesh_json", icon='FILE')
+		row = col.row(align=True) ; row.scale_y = 1.3
+		row.operator("gbfr.export_skeleton_json", icon='FILE')
 			
 
 
@@ -496,14 +522,83 @@ class ButtonGitHub(bpy.types.Operator):
 	def execute(self, context):
 		webbrowser.open("https://github.com/WistfulHopes/GBFRBlenderTools")
 		return {'FINISHED'}
+
+def get_flatc_file_path(context):
+	addon = context.preferences.addons.get(__package__)
+	if addon is None:
+		raise RuntimeError("GBFR addon preferences could not be found.")
+	flatc_file_path = addon.preferences.flatc_file_path
+	if not flatc_file_path or os.path.exists(flatc_file_path) == False:
+		raise FileNotFoundError("Please put in the correct path to FlatBuffers/flatc.exe in Preferences > Add-ons > GBFR Blender Tools.")
+	return flatc_file_path
+
+class ButtonExportMInfoJson(bpy.types.Operator, ImportHelper):
+	bl_idname = "gbfr.export_minfo_json"
+	bl_label = "Export .minfo JSON"
+	bl_description = "Convert a .minfo file into a parsed .minfo.json file."
+
+	filename_ext = ".minfo"
+	filter_glob: StringProperty(
+		default="*.minfo",
+		options={'HIDDEN'},
+		maxlen=255,
+	)
+
+	def execute(self, context):
+		try:
+			output_path = MInfo_Converter.export_minfo_file_to_json(get_flatc_file_path(context), self.filepath)
+			self.report({'INFO'}, f"Saved {os.path.basename(output_path)}")
+		except Exception as err:
+			raise Exception(format_exception(str(err)))
+		return {'FINISHED'}
+
+class ButtonExportMMeshJson(bpy.types.Operator, ImportHelper):
+	bl_idname = "gbfr.export_mmesh_json"
+	bl_label = "Export .mmesh JSON"
+	bl_description = "Convert a .mmesh file into a parsed .mmesh.json file."
+
+	filename_ext = ".mmesh"
+	filter_glob: StringProperty(
+		default="*.mmesh",
+		options={'HIDDEN'},
+		maxlen=255,
+	)
+
+	def execute(self, context):
+		try:
+			output_path = MInfo_Converter.export_mmesh_file_to_json(self.filepath)
+			self.report({'INFO'}, f"Saved {os.path.basename(output_path)}")
+		except Exception as err:
+			raise Exception(format_exception(str(err)))
+		return {'FINISHED'}
+
+class ButtonExportSkeletonJson(bpy.types.Operator, ImportHelper):
+	bl_idname = "gbfr.export_skeleton_json"
+	bl_label = "Export .skeleton JSON"
+	bl_description = "Convert a .skeleton file into a parsed .skeleton.json file."
+
+	filename_ext = ".skeleton"
+	filter_glob: StringProperty(
+		default="*.skeleton",
+		options={'HIDDEN'},
+		maxlen=255,
+	)
+
+	def execute(self, context):
+		try:
+			output_path = MInfo_Converter.export_skeleton_file_to_json(self.filepath)
+			self.report({'INFO'}, f"Saved {os.path.basename(output_path)}")
+		except Exception as err:
+			raise Exception(format_exception(str(err)))
+		return {'FINISHED'}
 	
 
 
-classes = [GBFRToolPanel_Fixes, GBFRToolPanel_Utilities, GBFRToolPanel_Materials, GBFRToolPanel_Advanced, GBFRToolPanel_Credits,
+classes = [GBFRToolPanel_Fixes, GBFRToolPanel_Utilities, GBFRToolPanel_Materials, GBFRToolPanel_Advanced, GBFRToolPanel_JSONTools, GBFRToolPanel_Credits,
 			ButtonSplitMeshAlongUVs, ButtonTranslateBonesToGBFR, ButtonTranslateBonesToUnityBlender, 
 			ButtonSeparateByMaterial, ButtonSortMaterials, ButtonJoinAllMeshes, ButtonSelect0WeightVertices, 
 			ButtonLimitAndNormalizeAllWeights, ButtonDeleteLooseGeometry, ButtonAddMaterialIndex, ButtonAddMagicNumber,
-			ButtonDiscord, ButtonWebsite, ButtonGitHub
+			ButtonDiscord, ButtonWebsite, ButtonGitHub, ButtonExportMInfoJson, ButtonExportMMeshJson, ButtonExportSkeletonJson
 			]
 
 # Register the panel class
