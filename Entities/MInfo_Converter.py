@@ -171,6 +171,7 @@ def write_mmesh_json(minfo_path, mmesh_path, out_json_path):
     weights = []
     faces = []
     invalid_weight_indices = set()
+    invalid_weight_vertex_count = 0
 
     with open(mmesh_path, 'rb') as file:
         if lod.MeshBuffersLength() > 0:
@@ -200,6 +201,8 @@ def write_mmesh_json(minfo_path, mmesh_path, out_json_path):
                 indices = list(struct.unpack('<HHHH', file.read(8)))
                 bone_ids, out_of_range_indices = map_deform_joint_indices(indices, deform_joint_table)
                 invalid_weight_indices.update(out_of_range_indices)
+                if out_of_range_indices:
+                    invalid_weight_vertex_count += 1
                 weight_indices.append({
                     "raw": indices,
                     "bone_ids": bone_ids,
@@ -226,7 +229,11 @@ def write_mmesh_json(minfo_path, mmesh_path, out_json_path):
                 })
 
     if invalid_weight_indices:
-        print(f"Warning: {os.path.basename(mmesh_path)} has out-of-range deform joint indices: {sorted(invalid_weight_indices)}")
+        print(
+            f"Warning: {os.path.basename(mmesh_path)} has out-of-range deform joint indices "
+            f"on {invalid_weight_vertex_count} vertices; affected indices: {sorted(invalid_weight_indices)}. "
+            "The generated JSON keeps these entries as null bone_ids."
+        )
 
     dump_json(out_json_path, {
         "vertex_count": vert_count,
